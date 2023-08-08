@@ -9,6 +9,17 @@ $reportData = json_decode($report, true);
 function processReport($reportData, $db) {
   $expenses = [];
 
+  $startDate = date('Y-m-d');
+  $endDate = date('Y-m-d');
+  $stmt = $db->prepare('SELECT * FROM Tariff WHERE startdate <= :startDate AND enddate >= :endDate');
+  $stmt->bindValue(':startDate', $startDate, SQLITE3_TEXT);
+  $stmt->bindValue(':endDate', $endDate, SQLITE3_TEXT);
+  $result = $stmt->execute();
+  $tariff = $result->fetchArray(SQLITE3_ASSOC);
+
+  // Вычисляем расходы на рекламу объекта
+  $daysInTariff = (strtotime($tariff['enddate']) - strtotime($tariff['startdate'])) / (60 * 60 * 24);
+  
   foreach ($reportData as $item) {
     if ($item['status'] == 'Published') {
       // Получаем информацию о объекте вторичной недвижимости из БД
@@ -16,18 +27,7 @@ function processReport($reportData, $db) {
       $stmt->bindValue(':guid', $item['externalId'], SQLITE3_TEXT);
       $result = $stmt->execute();
       $resaleObject = $result->fetchArray(SQLITE3_ASSOC);
-
       // Получаем информацию о тарифе
-      $startDate = date('Y-m-d');
-      $endDate = date('Y-m-d');
-      $stmt = $db->prepare('SELECT * FROM Tariff WHERE startdate <= :startDate AND enddate >= :endDate');
-      $stmt->bindValue(':startDate', $startDate, SQLITE3_TEXT);
-      $stmt->bindValue(':endDate', $endDate, SQLITE3_TEXT);
-      $result = $stmt->execute();
-      $tariff = $result->fetchArray(SQLITE3_ASSOC);
-
-      // Вычисляем расходы на рекламу объекта
-      $daysInTariff = (strtotime($tariff['enddate']) - strtotime($tariff['startdate'])) / (60 * 60 * 24);
       $totalExpenses = $tariff['price'] / ($daysInTariff * count($reportData));
       $expense = [
         'resale_object' => $resaleObject['id'],
